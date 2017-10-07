@@ -266,19 +266,20 @@ struct pwm_output_rc_config {
 #define PWM_SERVO_SET_SBUS_RATE			_PX4_IOC(_PWM_SERVO_BASE, 33)
 
 /** set auxillary output mode. These correspond to enum Mode in px4fmu/fmu.cpp */
-#define PWM_SERVO_MODE_NONE			0
-#define PWM_SERVO_MODE_1PWM			1
-#define PWM_SERVO_MODE_2PWM			2
-#define PWM_SERVO_MODE_2PWM2CAP			3
-#define PWM_SERVO_MODE_3PWM			4
-#define PWM_SERVO_MODE_3PWM1CAP			5
-#define PWM_SERVO_MODE_4PWM			6
-#define PWM_SERVO_MODE_6PWM			7
-#define PWM_SERVO_MODE_8PWM			8
-#define PWM_SERVO_MODE_4CAP			9
-#define PWM_SERVO_MODE_5CAP		       10
-#define PWM_SERVO_MODE_6CAP		       11
-#define PWM_SERVO_SET_MODE			_PX4_IOC(_PWM_SERVO_BASE, 34)
+#define PWM_SERVO_MODE_NONE         0
+#define PWM_SERVO_MODE_1PWM         1
+#define PWM_SERVO_MODE_2PWM         2
+#define PWM_SERVO_MODE_2PWM2CAP     3
+#define PWM_SERVO_MODE_3PWM         4
+#define PWM_SERVO_MODE_3PWM1CAP     5
+#define PWM_SERVO_MODE_4PWM         6
+#define PWM_SERVO_MODE_6PWM         7
+#define PWM_SERVO_MODE_8PWM         8
+#define PWM_SERVO_MODE_14PWM        9
+#define PWM_SERVO_MODE_4CAP        10
+#define PWM_SERVO_MODE_5CAP        11
+#define PWM_SERVO_MODE_6CAP        12
+#define PWM_SERVO_SET_MODE         _PX4_IOC(_PWM_SERVO_BASE, 34)
 
 /*
  *
@@ -363,7 +364,7 @@ __EXPORT extern int	up_pwm_servo_set_rate_group_update(unsigned group, unsigned 
 /**
  * Trigger all timer's channels in Oneshot mode to fire
  * the oneshot with updated values.
- * Nothing is none if not in oneshot mode.
+ * Nothing is done if not in oneshot mode.
  *
  */
 __EXPORT extern void up_pwm_update(void);

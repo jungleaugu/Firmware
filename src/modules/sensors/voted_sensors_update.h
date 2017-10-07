@@ -142,7 +142,12 @@ public:
 	/**
 	 * Calculates the magnitude in rad/s of the largest difference between the primary and any other gyro sensor
 	 */
-	void calc_gyro_inconsistency(struct sensor_preflight_s &preflt);
+	void calc_gyro_inconsistency(sensor_preflight_s &preflt);
+
+	/**
+	 * Calculates the magnitude in Gauss of the largest difference between the primary and any other magnetometers
+	 */
+	void calc_mag_inconsistency(sensor_preflight_s &preflt);
 
 private:
 
@@ -263,6 +268,7 @@ private:
 
 	float _accel_diff[3][2];	/**< filtered accel differences between IMU units (m/s/s) */
 	float _gyro_diff[3][2];		/**< filtered gyro differences between IMU uinits (rad/s) */
+	float _mag_diff[3][2];		/**< filtered mag differences between sensor instances (Ga) */
 
 	/* sensor thermal compensation */
 	TemperatureCompensation _temperature_compensation;
@@ -274,7 +280,7 @@ private:
 	struct sensor_selection_s _selection = {}; /**< struct containing the sensor selection to be published to the uORB*/
 	orb_advert_t _sensor_selection_pub = nullptr; /**< handle to the sensor selection uORB topic */
 	bool _selection_changed = false; /**< true when a sensor selection has changed and not been published */
-	uint32_t _accel_device_id[SENSOR_COUNT_MAX] = {};
+	uint32_t _accel_device_id[SENSOR_COUNT_MAX] = {}; /**< accel driver device id for each uorb instance */
 	uint32_t _baro_device_id[SENSOR_COUNT_MAX] = {};
 	uint32_t _gyro_device_id[SENSOR_COUNT_MAX] = {};
 	uint32_t _mag_device_id[SENSOR_COUNT_MAX] = {};

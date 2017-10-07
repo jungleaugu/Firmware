@@ -49,8 +49,9 @@
 #include <stdio.h>
 #include <drivers/drv_hrt.h>
 
-LidarLiteI2C::LidarLiteI2C(int bus, const char *path, int address) :
+LidarLiteI2C::LidarLiteI2C(int bus, const char *path, uint8_t rotation, int address) :
 	I2C("LL40LS", path, bus, address, 100000),
+	_rotation(rotation),
 	_work{},
 	_reports(nullptr),
 	_sensor_ok(false),
@@ -454,7 +455,7 @@ int LidarLiteI2C::collect()
 	report.covariance = 0.0f;
 	/* the sensor is in fact a laser + sonar but there is no enum for this */
 	report.type = distance_sensor_s::MAV_DISTANCE_SENSOR_LASER;
-	report.orientation = 8;
+	report.orientation = _rotation;
 	/* TODO: set proper ID */
 	report.id = 0;
 
@@ -563,4 +564,9 @@ void LidarLiteI2C::print_info()
 	_reports->print_info("report queue");
 	printf("distance: %ucm (0x%04x)\n",
 	       (unsigned)_last_distance, (unsigned)_last_distance);
+}
+
+const char *LidarLiteI2C::get_dev_name()
+{
+	return get_devname();
 }

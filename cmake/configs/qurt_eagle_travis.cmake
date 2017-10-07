@@ -27,7 +27,7 @@ include_directories(${HEXAGON_SDK_INCLUDES})
 
 set(config_module_list
 	drivers/device
-	drivers/boards/sitl
+	drivers/boards
 	drivers/pwm_out_sim
 	drivers/led
 	drivers/rgbled
@@ -57,7 +57,7 @@ set(config_module_list
 	#
 	# Library modules
 	#
-	modules/param
+	modules/systemlib/param
 	modules/systemlib
 	modules/systemlib/mixer
 	modules/uORB
@@ -79,6 +79,7 @@ set(config_module_list
 	lib/tailsitter_recovery
 	lib/version
 	lib/DriverFramework/framework
+	lib/micro-CDR
 
 	#
 	# QuRT port

@@ -58,13 +58,13 @@
 #include <systemlib/param/param.h>
 #include <systemlib/pwm_limit/pwm_limit.h>
 
+#include "tap_esc_common.h"
+
 #define NAN_VALUE	(0.0f/0.0f)
 
 #ifndef B250000
 #define B250000 250000
 #endif
-
-#define ESC_HAVE_CURRENT_SENSOR
 
 #include "drv_tap_esc.h"
 
@@ -102,11 +102,9 @@ public:
 	virtual int	init();
 	virtual int	ioctl(file *filp, int cmd, unsigned long arg);
 	void cycle();
-protected:
-	void select_responder(uint8_t sel);
+
 private:
 
-	static const uint8_t crcTable[256];
 	static const uint8_t device_mux_map[TAP_ESC_MAX_MOTOR_NUM];
 	static const uint8_t device_dir_map[TAP_ESC_MAX_MOTOR_NUM];
 
@@ -148,7 +146,7 @@ private:
 
 	void		work_start();
 	void		work_stop();
-	void send_esc_outputs(const float *pwm, const unsigned num_pwm);
+	void send_esc_outputs(const uint16_t *pwm, const unsigned num_pwm);
 	uint8_t crc8_esc(uint8_t *p, uint8_t len);
 	uint8_t crc_packet(EscPacket &p);
 	int send_packet(EscPacket &p, int responder);
@@ -159,7 +157,6 @@ private:
 	inline int control_callback(uint8_t control_group, uint8_t control_index, float &input);
 };
 
-const uint8_t TAP_ESC::crcTable[256] = TAP_ESC_CRC;
 const uint8_t TAP_ESC::device_mux_map[TAP_ESC_MAX_MOTOR_NUM] = ESC_POS;
 const uint8_t TAP_ESC::device_dir_map[TAP_ESC_MAX_MOTOR_NUM] = ESC_DIR;
 
@@ -360,7 +357,7 @@ int TAP_ESC::send_packet(EscPacket &packet, int responder)
 			return -EINVAL;
 		}
 
-		select_responder(responder);
+		tap_esc_common::select_responder(responder);
 	}
 
 	int packet_len = crc_packet(packet);
@@ -406,7 +403,7 @@ uint8_t TAP_ESC::crc8_esc(uint8_t *p, uint8_t len)
 	uint8_t crc = 0;
 
 	for (uint8_t i = 0; i < len; i++) {
-		crc = crcTable[crc^*p++];
+		crc = tap_esc_common::crc_table[crc^*p++];
 	}
 
 	return crc;
@@ -418,17 +415,8 @@ uint8_t TAP_ESC::crc_packet(EscPacket &p)
 	p.d.bytes[p.len] = crc8_esc(&p.len, p.len + 2);
 	return p.len + offsetof(EscPacket, d) + 1;
 }
-void TAP_ESC::select_responder(uint8_t sel)
-{
-#if defined(GPIO_S0)
-	px4_arch_gpiowrite(GPIO_S0, sel & 1);
-	px4_arch_gpiowrite(GPIO_S1, sel & 2);
-	px4_arch_gpiowrite(GPIO_S2, sel & 4);
-#endif
-}
 
-
-void TAP_ESC:: send_esc_outputs(const float *pwm, const unsigned num_pwm)
+void TAP_ESC::send_esc_outputs(const uint16_t *pwm, const unsigned num_pwm)
 {
 
 	uint16_t rpm[TAP_ESC_MAX_MOTOR_NUM];
@@ -486,7 +474,7 @@ void TAP_ESC::read_data_from_uart()
 	}
 }
 
-bool TAP_ESC:: parse_tap_esc_feedback(ESC_UART_BUF *serial_buf, EscPacket *packetdata)
+bool TAP_ESC::parse_tap_esc_feedback(ESC_UART_BUF *serial_buf, EscPacket *packetdata)
 {
 	static PARSR_ESC_STATE state = HEAD;
 	static uint8_t data_index = 0;
@@ -657,7 +645,7 @@ TAP_ESC::cycle()
 		if (_is_armed && _mixers != nullptr) {
 
 			/* do mixing */
-			num_outputs = _mixers->mix(&_outputs.output[0], num_outputs, NULL);
+			num_outputs = _mixers->mix(&_outputs.output[0], num_outputs);
 			_outputs.noutputs = num_outputs;
 			_outputs.timestamp = hrt_absolute_time();
 
@@ -723,32 +711,30 @@ TAP_ESC::cycle()
 		}
 
 		const unsigned esc_count = num_outputs;
-		float motor_out[TAP_ESC_MAX_MOTOR_NUM];
+		uint16_t motor_out[TAP_ESC_MAX_MOTOR_NUM];
 
 		// We need to remap from the system default to what PX4's normal
 		// scheme is
 		if (num_outputs == 6) {
-			motor_out[0] = _outputs.output[3];
-			motor_out[1] = _outputs.output[0];
-			motor_out[2] = _outputs.output[4];
-			motor_out[3] = _outputs.output[2];
-			motor_out[4] = _outputs.output[1];
-			motor_out[5] = _outputs.output[5];
+			motor_out[0] = (uint16_t)_outputs.output[3];
+			motor_out[1] = (uint16_t)_outputs.output[0];
+			motor_out[2] = (uint16_t)_outputs.output[4];
+			motor_out[3] = (uint16_t)_outputs.output[2];
+			motor_out[4] = (uint16_t)_outputs.output[1];
+			motor_out[5] = (uint16_t)_outputs.output[5];
 			motor_out[6] = RPMSTOPPED;
 			motor_out[7] = RPMSTOPPED;
 
 		} else if (num_outputs == 4) {
-
-			motor_out[0] = _outputs.output[2];
-			motor_out[2] = _outputs.output[0];
-			motor_out[1] = _outputs.output[1];
-			motor_out[3] = _outputs.output[3];
+			motor_out[0] = (uint16_t)_outputs.output[2];
+			motor_out[2] = (uint16_t)_outputs.output[0];
+			motor_out[1] = (uint16_t)_outputs.output[1];
+			motor_out[3] = (uint16_t)_outputs.output[3];
 
 		} else {
-
 			// Use the system defaults
-			for (int i = 0; i < esc_count; ++i) {
-				motor_out[i] = _outputs.output[i];
+			for (unsigned i = 0; i < esc_count; ++i) {
+				motor_out[i] = (uint16_t)_outputs.output[i];
 			}
 		}
 
@@ -1103,9 +1089,9 @@ void start()
 	_task_should_exit = false;
 
 	/* start the task */
-	_task_handle = px4_task_spawn_cmd("tap_esc_main",
+	_task_handle = px4_task_spawn_cmd("tap_esc",
 					  SCHED_DEFAULT,
-					  SCHED_PRIORITY_MAX,
+					  SCHED_PRIORITY_ACTUATOR_OUTPUTS,
 					  1100,
 					  (px4_main_t)&task_main_trampoline,
 					  nullptr);

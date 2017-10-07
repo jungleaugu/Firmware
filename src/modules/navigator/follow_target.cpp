@@ -179,26 +179,18 @@ void FollowTarget::on_active()
 		dt_ms = ((_current_target_motion.timestamp - _previous_target_motion.timestamp) / 1000);
 
 		// ignore a small dt
-
 		if (dt_ms > 10.0F) {
-
-			math::Vector<3> prev_position_delta = _target_position_delta;
-
 			// get last gps known reference for target
-
 			map_projection_init(&target_ref, _previous_target_motion.lat, _previous_target_motion.lon);
 
 			// calculate distance the target has moved
-
 			map_projection_project(&target_ref, _current_target_motion.lat, _current_target_motion.lon,
 					       &(_target_position_delta(0)), &(_target_position_delta(1)));
 
 			// update the average velocity of the target based on the position
-
 			_est_target_vel = _target_position_delta / (dt_ms / 1000.0f);
 
 			// if the target is moving add an offset and rotation
-
 			if (_est_target_vel.length() > .5F) {
 				_target_position_offset = _rot_matrix * _est_target_vel.normalized() * _follow_offset;
 			}
@@ -345,6 +337,8 @@ void FollowTarget::on_active()
 			_follow_target_state = WAIT_FOR_TARGET_POSITION;
 		}
 
+	/* FALLTHROUGH */
+
 	case WAIT_FOR_TARGET_POSITION: {
 
 			if (is_mission_item_reached() && target_velocity_valid()) {
@@ -367,7 +361,7 @@ void FollowTarget::update_position_sp(bool use_velocity, bool use_position, floa
 
 	pos_sp_triplet->previous.valid = use_position;
 	pos_sp_triplet->previous = pos_sp_triplet->current;
-	mission_item_to_position_setpoint(&_mission_item, &pos_sp_triplet->current);
+	mission_item_to_position_setpoint(_mission_item, &pos_sp_triplet->current);
 	pos_sp_triplet->current.type = position_setpoint_s::SETPOINT_TYPE_FOLLOW_TARGET;
 	pos_sp_triplet->current.position_valid = use_position;
 	pos_sp_triplet->current.velocity_valid = use_velocity;
