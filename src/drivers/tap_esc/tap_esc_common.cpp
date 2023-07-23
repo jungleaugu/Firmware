@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2017 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2018-2021 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,27 +36,253 @@
  *
  */
 
-#include <px4_config.h>
 #include "tap_esc_common.h"
 
+#include <fcntl.h>
+#include <termios.h>
+
+#include <systemlib/px4_macros.h> // arraySize
+#include <px4_platform_common/px4_config.h>
+#include <px4_platform_common/defines.h>
+#include <px4_platform_common/log.h>
+
+#ifndef B250000
+#define B250000 250000
+#endif
+
+#if defined(GPIO_CAN1_SILENT_S0)
+#  define ESC_MUX_SELECT0 GPIO_CAN1_SILENT_S0
+#  define ESC_MUX_SELECT1 GPIO_CAN2_SILENT_S1
+#  define ESC_MUX_SELECT2 GPIO_CAN3_SILENT_S2
+#endif
 
 namespace tap_esc_common
 {
-/****************************************************************************
- * Name: select_responder
- *
- * Description:
- *   Select tap esc responder for serial interface (device 74hct151).
- *   GPIOs to be defined in board_config.h
- *
- ****************************************************************************/
+static uint8_t crc8_esc(uint8_t *p, uint8_t len);
+static uint8_t crc_packet(EscPacket &p);
+
 void select_responder(uint8_t sel)
 {
-#if defined(GPIO_S0)
-	px4_arch_gpiowrite(GPIO_S0, sel & 1);
-	px4_arch_gpiowrite(GPIO_S1, sel & 2);
-	px4_arch_gpiowrite(GPIO_S2, sel & 4);
+#if defined(ESC_MUX_SELECT0)
+	px4_arch_gpiowrite(ESC_MUX_SELECT0, sel & 1);
+	px4_arch_gpiowrite(ESC_MUX_SELECT1, sel & 2);
+	px4_arch_gpiowrite(ESC_MUX_SELECT2, sel & 4);
 #endif
+}
+
+int initialise_uart(const char *const device, int &uart_fd)
+{
+	// open uart
+	uart_fd = open(device, O_RDWR | O_NOCTTY | O_NONBLOCK);
+	int termios_state = -1;
+
+	if (uart_fd < 0) {
+		PX4_ERR("failed to open uart device!");
+		return -1;
+	}
+
+	// set baud rate
+	int speed = B250000;
+	struct termios uart_config;
+	tcgetattr(uart_fd, &uart_config);
+
+	// clear ONLCR flag (which appends a CR for every LF)
+	uart_config.c_oflag &= ~ONLCR;
+
+	// set baud rate
+	if (cfsetispeed(&uart_config, speed) < 0 || cfsetospeed(&uart_config, speed) < 0) {
+		PX4_ERR("failed to set baudrate for %s: %d\n", device, termios_state);
+		close(uart_fd);
+		return -1;
+	}
+
+	if ((termios_state = tcsetattr(uart_fd, TCSANOW, &uart_config)) < 0) {
+		PX4_ERR("tcsetattr failed for %s\n", device);
+		close(uart_fd);
+		return -1;
+	}
+
+	// setup output flow control
+	if (enable_flow_control(uart_fd, false)) {
+		PX4_WARN("hardware flow disable failed");
+	}
+
+	return 0;
+}
+
+int deinitialise_uart(int &uart_fd)
+{
+	int ret = close(uart_fd);
+
+	if (ret == 0) {
+		uart_fd = -1;
+	}
+
+	return ret;
+}
+
+int enable_flow_control(int uart_fd, bool enabled)
+{
+	struct termios uart_config;
+
+	int ret = tcgetattr(uart_fd, &uart_config);
+
+	if (ret != 0) {
+		PX4_ERR("error getting uart configuration");
+		return ret;
+	}
+
+	if (enabled) {
+		uart_config.c_cflag |= CRTSCTS;
+
+	} else {
+		uart_config.c_cflag &= ~CRTSCTS;
+	}
+
+	return tcsetattr(uart_fd, TCSANOW, &uart_config);
+}
+
+int send_packet(int uart_fd, EscPacket &packet, int responder)
+{
+	if (responder >= 0) {
+		select_responder(responder);
+	}
+
+	int packet_len = crc_packet(packet);
+	int ret = ::write(uart_fd, &packet.head, packet_len);
+
+	if (ret != packet_len) {
+		PX4_WARN("TX ERROR: ret: %d, errno: %d", ret, errno);
+	}
+
+	return ret;
+}
+
+int read_data_from_uart(int uart_fd, ESC_UART_BUF *const uart_buf)
+{
+	uint8_t tmp_serial_buf[UART_BUFFER_SIZE];
+
+	int len =::read(uart_fd, tmp_serial_buf, arraySize(tmp_serial_buf));
+
+	if (len > 0 && (uart_buf->dat_cnt + len < UART_BUFFER_SIZE)) {
+		for (int i = 0; i < len; i++) {
+			uart_buf->esc_feedback_buf[uart_buf->tail++] = tmp_serial_buf[i];
+			uart_buf->dat_cnt++;
+
+			if (uart_buf->tail >= UART_BUFFER_SIZE) {
+				uart_buf->tail = 0;
+			}
+		}
+
+	} else if (len < 0) {
+		return len;
+	}
+
+	return 0;
+}
+
+int parse_tap_esc_feedback(ESC_UART_BUF *const serial_buf, EscPacket *const packetdata)
+{
+	static PARSR_ESC_STATE state = HEAD;
+	static uint8_t data_index = 0;
+	static uint8_t crc_data_cal;
+
+	if (serial_buf->dat_cnt > 0) {
+		int count = serial_buf->dat_cnt;
+
+		for (int i = 0; i < count; i++) {
+			switch (state) {
+			case HEAD:
+				if (serial_buf->esc_feedback_buf[serial_buf->head] == PACKET_HEAD) {
+					packetdata->head = PACKET_HEAD; //just_keep the format
+					state = LEN;
+				}
+
+				break;
+
+			case LEN:
+				if (serial_buf->esc_feedback_buf[serial_buf->head] < sizeof(packetdata->d)) {
+					packetdata->len = serial_buf->esc_feedback_buf[serial_buf->head];
+					state = ID;
+
+				} else {
+					state = HEAD;
+				}
+
+				break;
+
+			case ID:
+				if (serial_buf->esc_feedback_buf[serial_buf->head] < ESCBUS_MSG_ID_MAX_NUM) {
+					packetdata->msg_id = serial_buf->esc_feedback_buf[serial_buf->head];
+					data_index = 0;
+					state = DATA;
+
+				} else {
+					state = HEAD;
+				}
+
+				break;
+
+			case DATA:
+				packetdata->d.bytes[data_index++] = serial_buf->esc_feedback_buf[serial_buf->head];
+
+				if (data_index >= packetdata->len) {
+
+					crc_data_cal = crc8_esc((uint8_t *)(&packetdata->len), packetdata->len + 2);
+					state = CRC;
+				}
+
+				break;
+
+			case CRC:
+				if (crc_data_cal == serial_buf->esc_feedback_buf[serial_buf->head]) {
+					packetdata->crc_data = serial_buf->esc_feedback_buf[serial_buf->head];
+
+					if (++serial_buf->head >= UART_BUFFER_SIZE) {
+						serial_buf->head = 0;
+					}
+
+					serial_buf->dat_cnt--;
+					state = HEAD;
+					return 0;
+				}
+
+				state = HEAD;
+				break;
+
+			default:
+				state = HEAD;
+				break;
+
+			}
+
+			if (++serial_buf->head >= UART_BUFFER_SIZE) {
+				serial_buf->head = 0;
+			}
+
+			serial_buf->dat_cnt--;
+		}
+	}
+
+	return -1;
+}
+
+static uint8_t crc8_esc(uint8_t *p, uint8_t len)
+{
+	uint8_t crc = 0;
+
+	for (uint8_t i = 0; i < len; i++) {
+		crc = crc_table[crc^*p++];
+	}
+
+	return crc;
+}
+
+static uint8_t crc_packet(EscPacket &p)
+{
+	/* Calculate the crc over Len,ID,data */
+	p.d.bytes[p.len] = crc8_esc(&p.len, p.len + 2);
+	return p.len + offsetof(EscPacket, d) + 1;
 }
 
 const uint8_t crc_table[256] = {

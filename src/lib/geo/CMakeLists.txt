@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2015 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2018-2021 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -30,11 +30,12 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-px4_add_module(
-	MODULE lib__geo
-	SRCS
-		geo.c
-	DEPENDS
-		platforms__common
-	)
-# vim: set noet ft=cmake fenc=utf-8 ff=unix : 
+
+add_library(geo
+	geo.cpp
+	geo.h
+)
+add_dependencies(geo prebuild_targets)
+target_compile_options(geo PRIVATE ${MAX_CUSTOM_OPT_LEVEL})
+
+px4_add_unit_gtest(SRC test_geo.cpp LINKLIBS geo)

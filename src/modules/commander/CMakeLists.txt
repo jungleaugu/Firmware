@@ -30,28 +30,47 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
+
+add_subdirectory(failure_detector)
+add_subdirectory(HealthAndArmingChecks)
+add_subdirectory(failsafe)
+add_subdirectory(Arming)
+add_subdirectory(ModeUtil)
+
 px4_add_module(
 	MODULE modules__commander
 	MAIN commander
-	STACK_MAIN 4096
-	STACK_MAX 2450
 	COMPILE_FLAGS
-		-Wno-sign-compare # TODO: fix all sign-compare
 	SRCS
-		commander.cpp
-		state_machine_helper.cpp
-		commander_helper.cpp
-		calibration_routines.cpp
 		accelerometer_calibration.cpp
-		gyro_calibration.cpp
-		mag_calibration.cpp
-		baro_calibration.cpp
-		rc_calibration.cpp
 		airspeed_calibration.cpp
+		baro_calibration.cpp
+		calibration_routines.cpp
+		Commander.cpp
+		commander_helper.cpp
 		esc_calibration.cpp
-		PreflightCheck.cpp
-		arm_auth.cpp
+		factory_calibration_storage.cpp
+		gyro_calibration.cpp
+		HomePosition.cpp
+		UserModeIntention.cpp
+		level_calibration.cpp
+		lm_fit.cpp
+		mag_calibration.cpp
+		rc_calibration.cpp
+		Safety.cpp
+		worker_thread.cpp
 	DEPENDS
-		platforms__common
+		circuit_breaker
+		failure_detector
+		geo
+		health_and_arming_checks
+		hysteresis
+		ArmAuthorization
+		ArmStateMachine
+		sensor_calibration
+		world_magnetic_model
+		mode_util
+		failsafe
 	)
-# vim: set noet ft=cmake fenc=utf-8 ff=unix :
+
+px4_add_unit_gtest(SRC mag_calibration_test.cpp LINKLIBS modules__commander)

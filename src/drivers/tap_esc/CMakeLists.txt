@@ -1,6 +1,6 @@
 ############################################################################
 #
-#   Copyright (c) 2016 PX4 Development Team. All rights reserved.
+#   Copyright (c) 2018-2021 PX4 Development Team. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -34,11 +34,17 @@ px4_add_module(
 	MODULE drivers__tap_esc
 	MAIN tap_esc
 	COMPILE_FLAGS
-		-Wno-missing-field-initializers
 	SRCS
-		tap_esc.cpp
 		tap_esc_common.cpp
+		tap_esc_common.h
+		tap_esc_uploader.cpp
+		tap_esc_uploader.h
+		TAP_ESC.cpp
+		TAP_ESC.hpp
+	MODULE_CONFIG
+		module.yaml
 	DEPENDS
-		platforms__common
+		led
+		mixer_module
+		tunes
 	)
-# vim: set noet ft=cmake fenc=utf-8 ff=unix :

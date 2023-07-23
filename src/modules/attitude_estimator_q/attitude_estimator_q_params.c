@@ -39,8 +39,6 @@
  * @author Anton Babushkin <anton.babushkin@me.com>
  */
 
-#include <systemlib/param/param.h>
-
 /**
  * Complimentary filter accelerometer weight
  *
@@ -53,6 +51,8 @@ PARAM_DEFINE_FLOAT(ATT_W_ACC, 0.2f);
 
 /**
  * Complimentary filter magnetometer weight
+ *
+ * Set to 0 to avoid using the magnetometer.
  *
  * @group Attitude Q estimator
  * @min 0
@@ -103,6 +103,7 @@ PARAM_DEFINE_INT32(ATT_MAG_DECL_A, 1);
 
 /**
  * External heading usage mode (from Motion capture/Vision)
+ *
  * Set to 1 to use heading estimate from vision.
  * Set to 2 to use heading from motion capture.
  *
@@ -116,8 +117,7 @@ PARAM_DEFINE_INT32(ATT_MAG_DECL_A, 1);
 PARAM_DEFINE_INT32(ATT_EXT_HDG_M, 0);
 
 /**
- * Acceleration compensation based on GPS
- * velocity.
+ * Acceleration compensation based on GPS velocity.
  *
  * @group Attitude Q estimator
  * @boolean

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 ############################################################################
 #
-#   Copyright (C) 2014-2016 PX4 Development Team. All rights reserved.
+#   Copyright (C) 2014-2018 PX4 Development Team. All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -35,10 +35,10 @@
 
 """
 px_romfs_pruner.py:
-Try to keep size of ROMFS minimal.
+Try to keep size of the ROMFS minimal.
 
 This script goes through the temporarily copied ROMFS data and deletes all
-comments, empty lines and leading whitespace.
+comments, empty lines and unnecessary whitespace.
 It also deletes hidden files such as auto-saved backups that a text editor
 might have left in the tree.
 
@@ -49,6 +49,7 @@ from __future__ import print_function
 import argparse
 import re
 import os
+import io
 
 
 def main():
@@ -59,6 +60,8 @@ def main():
     parser.add_argument('--board', action="store",
                         help="Board architecture for this run")
     args = parser.parse_args()
+
+    err_count = 0
 
     # go through temp folder
     for (root, dirs, files) in os.walk(args.folder):
@@ -75,26 +78,37 @@ def main():
                 os.remove(file_path)
                 continue
 
+            # delete CMakeLists
+            if file.startswith("CMakeLists"):
+                os.remove(file_path)
+                continue
+
             # only prune text files
             if ".zip" in file or ".bin" in file or ".swp" in file \
+                    or ".gz" in file or ".xz" in file or ".bz2" in file \
                     or ".data" in file or ".DS_Store" in file:
                 continue
 
             # read file line by line
             pruned_content = ""
             board_excluded = False
-            with open(file_path, "rU") as f:
+
+            with io.open(file_path, "r", newline=None) as f:
                 for line in f:
-                    if re.search(r'\b{0} exclude\b'.format(args.board),line):
-                        board_excluded = True;
-                    # handle mixer files differently than startup files
-                    if file_path.endswith(".mix"):
-                        if line.startswith(("Z:", "M:", "R: ", "O:", "S:", "H:", "T:", "P:")):
-                            pruned_content += line
-                    else:
-                        if not line.isspace() \
-                                and not line.strip().startswith("#"):
-                            pruned_content += line.strip() + "\n"
+                    # abort if spurious tabs are found
+                    if re.search(r"[a-zA-Z0-9]+\t.+", line):
+                        file_local = re.sub(args.folder, '', file_path)
+                        print("ERROR: Spurious TAB character in file " + file_local)
+                        print("Line: " + line)
+                        err_count += 1
+
+                    # find excluded boards
+                    if re.search(r'\b{0} exclude\b'.format(args.board), line):
+                        board_excluded = True
+
+                    if not line.isspace() \
+                            and not line.strip().startswith("#"):
+                        pruned_content += line.strip() + "\n"
             # delete the file if it doesn't contain the architecture
             # write out the pruned content else
             if not board_excluded:
@@ -104,6 +118,9 @@ def main():
                     f.write(pruned_content.encode("ascii", errors='strict'))
             else:
                 os.remove(file_path)
+
+    if (err_count > 0):
+        exit(1)
 
 
 if __name__ == '__main__':

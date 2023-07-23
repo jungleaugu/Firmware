@@ -1,7 +1,6 @@
 /****************************************************************************
- * px4/sensors/test_dataman.c
  *
- *  Copyright (C) 2012 PX4 Development Team. All rights reserved.
+ *  Copyright (C) 2018-2019 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -13,7 +12,7 @@
  *    notice, this list of conditions and the following disclaimer in
  *    the documentation and/or other materials provided with the
  *    distribution.
- * 3. Neither the name NuttX nor the names of its contributors may be
+ * 3. Neither the name PX4 nor the names of its contributors may be
  *    used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -32,12 +31,14 @@
  *
  ****************************************************************************/
 
-/****************************************************************************
- * Included Files
- ****************************************************************************/
+/**
+ * @file test_dataman.c
+ * Tests for the data manager.
+ */
 
-#include <px4_config.h>
-#include <px4_posix.h>
+#include <px4_platform_common/log.h>
+#include <px4_platform_common/px4_config.h>
+#include <px4_platform_common/posix.h>
 
 #include <sys/types.h>
 
@@ -47,10 +48,7 @@
 #include <fcntl.h>
 #include <errno.h>
 
-#include <arch/board/board.h>
-
 #include <drivers/drv_board_led.h>
-#include <systemlib/systemlib.h>
 #include <drivers/drv_hrt.h>
 #include <semaphore.h>
 
@@ -71,9 +69,9 @@ task_main(int argc, char *argv[])
 {
 	char buffer[DM_MAX_DATA_SIZE];
 
-	PX4_INFO("Starting dataman test task %s", argv[1]);
+	PX4_INFO("Starting dataman test task %s", argv[2]);
 	/* try to read an invalid item */
-	int my_id = atoi(argv[1]);
+	int my_id = atoi(argv[2]);
 
 	/* try to read an invalid item */
 	if (dm_read(DM_KEY_NUM_KEYS, 0, buffer, sizeof(buffer)) >= 0) {
@@ -88,7 +86,8 @@ task_main(int argc, char *argv[])
 	}
 
 	srand(hrt_absolute_time() ^ my_id);
-	unsigned hit = 0, miss = 0;
+	unsigned hit = 0;
+	unsigned miss = 0;
 	hrt_abstime wstart = hrt_absolute_time();
 
 	for (unsigned i = 0; i < NUM_MISSIONS_TEST; i++) {
@@ -97,11 +96,11 @@ task_main(int argc, char *argv[])
 		unsigned hash = i ^ my_id;
 		unsigned len = (hash % (DM_MAX_DATA_SIZE / 2)) + 2;
 
-		int ret = dm_write(DM_KEY_WAYPOINTS_OFFBOARD_1, hash, DM_PERSIST_IN_FLIGHT_RESET, buffer, len);
+		int ret = dm_write(DM_KEY_WAYPOINTS_OFFBOARD_1, hash, buffer, len);
 		//PX4_INFO("ret: %d", ret);
 
 		if (ret != len) {
-			PX4_WARN("task %d: write failed, index %d, length %d", my_id, hash, len);
+			PX4_WARN("task %d: write failed ret=%d, index: %d, length: %d", my_id, ret, hash, len);
 			goto fail;
 		}
 
@@ -109,7 +108,7 @@ task_main(int argc, char *argv[])
 			PX4_INFO("task %d: %.0f%%", my_id, (double)i * 100.0f / NUM_MISSIONS_TEST);
 		}
 
-		usleep(rand() & ((64 * 1024) - 1));
+		px4_usleep(rand() & ((64 * 1024) - 1));
 	}
 
 	hrt_abstime rstart = hrt_absolute_time();
@@ -117,11 +116,11 @@ task_main(int argc, char *argv[])
 
 	for (unsigned i = 0; i < NUM_MISSIONS_TEST; i++) {
 		unsigned hash = i ^ my_id;
-		unsigned len2;
-		unsigned len = (hash % (DM_MAX_DATA_SIZE / 2)) + 2;
+		ssize_t len2 = dm_read(DM_KEY_WAYPOINTS_OFFBOARD_1, hash, buffer, sizeof(buffer));
+		ssize_t len = (hash % (DM_MAX_DATA_SIZE / 2)) + 2;
 
-		if ((len2 = dm_read(DM_KEY_WAYPOINTS_OFFBOARD_1, hash, buffer, sizeof(buffer))) < 2) {
-			PX4_WARN("task %d: read failed length test, index %d", my_id, hash);
+		if (len2 != len) {
+			PX4_WARN("task %d: read failed length test, index %d, ret=%zd, len=%zd", my_id, hash, len2, len);
 			goto fail;
 		}
 
@@ -129,7 +128,7 @@ task_main(int argc, char *argv[])
 			hit++;
 
 			if (len2 != len) {
-				PX4_WARN("task %d: read failed length test, index %d, wanted %d, got %d", my_id, hash, len, len2);
+				PX4_WARN("task %d: read failed length test, index %d, wanted %zd, got %zd", my_id, hash, len, len2);
 				goto fail;
 			}
 
@@ -144,7 +143,7 @@ task_main(int argc, char *argv[])
 	}
 
 	hrt_abstime rend = hrt_absolute_time();
-	PX4_INFO("task %d pass, hit %d, miss %d, io time read %llums. write %llums.",
+	PX4_INFO("task %d pass, hit %d, miss %d, io time read %" PRIu64 "ms. write %" PRIu64 "ms.",
 		 my_id, hit, miss, (rend - rstart) / NUM_MISSIONS_TEST / 1000, (wend - wstart) / NUM_MISSIONS_TEST / 1000);
 	px4_sem_post(sems + my_id);
 	return 0;
@@ -181,10 +180,10 @@ int test_dataman(int argc, char *argv[])
 
 		px4_sem_init(sems + i, 1, 0);
 		/* sems use case is a signal */
-		px4_sem_setprotocol(sems, SEM_PRIO_NONE);
+		px4_sem_setprotocol(sems + i, SEM_PRIO_NONE);
 
 		/* start the task */
-		if ((task = px4_task_spawn_cmd("dataman", SCHED_DEFAULT, SCHED_PRIORITY_MAX - 5, 2048, task_main, av)) <= 0) {
+		if ((task = px4_task_spawn_cmd("dataman", SCHED_DEFAULT, SCHED_PRIORITY_DEFAULT, 2048, task_main, av)) <= 0) {
 			PX4_ERR("task start failed");
 		}
 	}
@@ -211,26 +210,9 @@ int test_dataman(int argc, char *argv[])
 		return -1;
 	}
 
-	dm_restart(DM_INIT_REASON_IN_FLIGHT);
-
 	for (i = 0; i < NUM_MISSIONS_TEST; i++) {
 		if (dm_read(DM_KEY_WAYPOINTS_OFFBOARD_1, i, buffer, sizeof(buffer)) != 0) {
 			break;
-		}
-	}
-
-	if (i >= NUM_MISSIONS_TEST) {
-		PX4_ERR("Restart in-flight failed");
-		return -1;
-
-	}
-
-	dm_restart(DM_INIT_REASON_POWER_ON);
-
-	for (i = 0; i < NUM_MISSIONS_TEST; i++) {
-		if (dm_read(DM_KEY_WAYPOINTS_OFFBOARD_1, i, buffer, sizeof(buffer)) != 0) {
-			PX4_ERR("Restart power-on failed");
-			return -1;
 		}
 	}
 

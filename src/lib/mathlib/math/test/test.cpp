@@ -41,6 +41,8 @@
 #include <math.h>
 #include <stdlib.h>
 
+#include <px4_platform_common/defines.h>
+
 #include "test.hpp"
 
 bool __EXPORT equal(float a, float b, float epsilon)
@@ -98,15 +100,10 @@ bool __EXPORT less_than_or_equal(float a, float b)
 	}
 }
 
-void __EXPORT float2SigExp(
-	const float &num,
-	float &sig,
-	int &exp)
+void __EXPORT float2SigExp(const float &num, float &sig, int &exp)
 {
-// FIXME - This code makes no sense when exp is an int
-// FIXME - isnan and isinf not defined for QuRT
-#ifndef __PX4_QURT
-	if (isnan(num) || isinf(num)) {
+
+	if (!PX4_ISFINITE(num)) {
 		sig = 0.0f;
 		exp = -99;
 		return;
@@ -126,8 +123,6 @@ void __EXPORT float2SigExp(
 	} else {
 		exp = floor(exp);
 	}
-
-#endif
 
 	sig = num;
 

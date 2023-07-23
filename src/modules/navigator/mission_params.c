@@ -58,40 +58,29 @@
 PARAM_DEFINE_FLOAT(MIS_TAKEOFF_ALT, 2.5f);
 
 /**
- * Minimum Loiter altitude
+ * Mission takeoff/landing required
  *
- * This is the minimum altitude the system will always obey. The intent is to stay out of ground effect.
- * set to -1, if there shouldn't be a minimum loiter altitude
+ * Specifies if a mission has to contain a takeoff and/or mission landing.
+ * Validity of configured takeoffs/landings is checked independently of the setting here.
  *
- * @unit m
- * @min -1
- * @max 80
- * @decimal 1
- * @increment 0.5
+ * @value 0 No requirements
+ * @value 1 Require a takeoff
+ * @value 2 Require a landing
+ * @value 3 Require a takeoff and a landing
+ * @value 4 Require both a takeoff and a landing, or neither
  * @group Mission
  */
-PARAM_DEFINE_FLOAT(MIS_LTRMIN_ALT, -1.0f);
+PARAM_DEFINE_INT32(MIS_TKO_LAND_REQ, 0);
 
 /**
- * Persistent onboard mission storage
- *
- * When enabled, missions that have been uploaded by the GCS are stored
- * and reloaded after reboot persistently.
- *
- * @boolean
- * @group Mission
- */
-PARAM_DEFINE_INT32(MIS_ONBOARD_EN, 1);
-
-/**
- * Maximal horizontal distance from home to first waypoint
+ * Maximal horizontal distance from current position to first waypoint
  *
  * Failsafe check to prevent running mission stored from previous flight at a new takeoff location.
  * Set a value of zero or less to disable. The mission will not be started if the current
- * waypoint is more distant than MIS_DIS_1WP from the home position.
+ * waypoint is more distant than MIS_DIST_1WP from the current position.
  *
  * @unit m
- * @min 0
+ * @min -1
  * @max 10000
  * @decimal 1
  * @increment 100
@@ -100,35 +89,18 @@ PARAM_DEFINE_INT32(MIS_ONBOARD_EN, 1);
 PARAM_DEFINE_FLOAT(MIS_DIST_1WP, 900);
 
 /**
- * Altitude setpoint mode
- *
- * 0: the system will follow a zero order hold altitude setpoint
- * 1: the system will follow a first order hold altitude setpoint
- * values follow the definition in enum mission_altitude_mode
- *
- * @min 0
- * @max 1
- * @value 0 Zero Order Hold
- * @value 1 First Order Hold
- * @group Mission
- */
-PARAM_DEFINE_INT32(MIS_ALTMODE, 1);
-
-/**
- * Multirotor only. Yaw setpoint mode.
- *
- * The values are defined in the enum mission_altitude_mode
- *
- * @min 0
- * @max 3
- * @value 0 Heading as set by waypoint
- * @value 1 Heading towards waypoint
- * @value 2 Heading towards home
- * @value 3 Heading away from home
- * @value 4 Heading towards ROI
- * @group Mission
- */
-PARAM_DEFINE_INT32(MIS_YAWMODE, 1);
+* Enable yaw control of the mount. (Only affects multicopters and ROI mission items)
+*
+* If enabled, yaw commands will be sent to the mount and the vehicle will follow its heading towards the flight direction.
+* If disabled, the vehicle will yaw towards the ROI.
+*
+* @value 0 Disable
+* @value 1 Enable
+* @min 0
+* @max 1
+* @group Mission
+*/
+PARAM_DEFINE_INT32(MIS_MNT_YAW_CTL, 0);
 
 /**
  * Time in seconds we wait on reaching target heading at a waypoint if it is forced.
@@ -160,39 +132,25 @@ PARAM_DEFINE_FLOAT(MIS_YAW_TMT, -1.0f);
 PARAM_DEFINE_FLOAT(MIS_YAW_ERR, 12.0f);
 
 /**
- * Weather-vane mode landings for missions
+ * Timeout for a successful payload deployment acknowledgement
  *
- * @boolean
- * @group Mission
- */
-PARAM_DEFINE_INT32(VT_WV_LND_EN, 0);
-
-/**
- * Enable weather-vane mode takeoff for missions
- *
- * @boolean
- * @group Mission
- */
-PARAM_DEFINE_INT32(VT_WV_TKO_EN, 0);
-
-/**
- * Weather-vane mode for loiter
- *
- * @boolean
- * @group Mission
- */
-PARAM_DEFINE_INT32(VT_WV_LTR_EN, 0);
-
-/**
- * Cruise Airspeed
- *
- * The fixed wing controller tries to fly at this airspeed.
- *
- * @unit m/s
- * @min 0.0
- * @max 40
+ * @unit s
+ * @min 0
  * @decimal 1
- * @increment 0.5
- * @group FW TECS
+ * @increment 1
+ * @group Mission
  */
-PARAM_DEFINE_FLOAT(FW_AIRSPD_TRIM, 15.0f);
+PARAM_DEFINE_FLOAT(MIS_PD_TO, 5.0f);
+
+/**
+ * Landing abort min altitude
+ *
+ * Minimum altitude above landing point that the vehicle will climb to after an aborted landing.
+ * Then vehicle will loiter in this altitude until further command is received.
+ * Only applies to fixed-wing vehicles.
+ *
+ * @unit m
+ * @min 0
+ * @group Mission
+ */
+PARAM_DEFINE_INT32(MIS_LND_ABRT_ALT, 30);

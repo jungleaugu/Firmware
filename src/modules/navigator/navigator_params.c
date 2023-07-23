@@ -43,7 +43,7 @@
 /**
  * Loiter radius (FW only)
  *
- * Default value of loiter radius for missions, loiter, RTL, etc. (fixedwing only).
+ * Default value of loiter radius in FW mode (e.g. for Loiter mode).
  *
  * @unit m
  * @min 25
@@ -52,13 +52,13 @@
  * @increment 0.5
  * @group Mission
  */
-PARAM_DEFINE_FLOAT(NAV_LOITER_RAD, 50.0f);
+PARAM_DEFINE_FLOAT(NAV_LOITER_RAD, 80.0f);
 
 /**
  * Acceptance Radius
  *
  * Default acceptance radius, overridden by acceptance radius of waypoint if set.
- * For fixed wing the L1 turning distance is used for horizontal acceptance.
+ * For fixed wing the npfg switch distance is used for horizontal acceptance.
  *
  * @unit m
  * @min 0.05
@@ -84,6 +84,20 @@ PARAM_DEFINE_FLOAT(NAV_ACC_RAD, 10.0f);
 PARAM_DEFINE_FLOAT(NAV_FW_ALT_RAD, 10.0f);
 
 /**
+ * FW Altitude Acceptance Radius before a landing
+ *
+ * Altitude acceptance used for the last waypoint before a fixed-wing landing. This is usually smaller
+ * than the standard vertical acceptance because close to the ground higher accuracy is required.
+ *
+ * @unit m
+ * @min 0.05
+ * @max 200.0
+ * @decimal 1
+ * @group Mission
+ */
+PARAM_DEFINE_FLOAT(NAV_FW_ALTL_RAD, 5.0f);
+
+/**
  * MC Altitude Acceptance Radius
  *
  * Acceptance radius for multicopter altitude.
@@ -98,83 +112,57 @@ PARAM_DEFINE_FLOAT(NAV_FW_ALT_RAD, 10.0f);
 PARAM_DEFINE_FLOAT(NAV_MC_ALT_RAD, 0.8f);
 
 /**
- * Set data link loss failsafe mode
+ * Set traffic avoidance mode
  *
- * The data link loss failsafe will only be entered after a timeout,
- * set by COM_DL_LOSS_T in seconds. Once the timeout occurs the selected
- * action will be executed. Setting this parameter to 4 will enable CASA
- * Outback Challenge rules, which are only recommended to participants
- * of that competition.
+ * Enabling this will allow the system to respond
+ * to transponder data from e.g. ADSB transponders
  *
  * @value 0 Disabled
- * @value 1 Loiter
- * @value 2 Return to Land
- * @value 3 Land at current position
- * @value 4 Data Link Auto Recovery (CASA Outback Challenge rules)
- * @value 5 Terminate
- * @value 6 Lockdown
+ * @value 1 Warn only
+ * @value 2 Return mode
+ * @value 3 Land mode
+ * @value 4 Position Hold mode
  *
  * @group Mission
  */
-PARAM_DEFINE_INT32(NAV_DLL_ACT, 0);
+PARAM_DEFINE_INT32(NAV_TRAFF_AVOID, 1);
 
 /**
- * Set RC loss failsafe mode
+ * Set NAV TRAFFIC AVOID horizontal distance
  *
- * The RC loss failsafe will only be entered after a timeout,
- * set by COM_RC_LOSS_T in seconds. If RC input checks have been disabled
- * by setting the COM_RC_IN_MODE param it will not be triggered.
- * Setting this parameter to 4 will enable CASA Outback Challenge rules,
- * which are only recommended to participants of that competition.
- *
- * @value 0 Disabled
- * @value 1 Loiter
- * @value 2 Return to Land
- * @value 3 Land at current position
- * @value 4 RC Auto Recovery (CASA Outback Challenge rules)
- * @value 5 Terminate
- * @value 6 Lockdown
- *
- * @group Mission
- */
-PARAM_DEFINE_INT32(NAV_RCL_ACT, 2);
-
-/**
- * Airfield home Lat
- *
- * Latitude of airfield home waypoint
- *
- * @unit deg * 1e7
- * @min -900000000
- * @max 900000000
- * @group Data Link Loss
- */
-PARAM_DEFINE_INT32(NAV_AH_LAT, -265847810);
-
-/**
- * Airfield home Lon
- *
- * Longitude of airfield home waypoint
- *
- * @unit deg * 1e7
- * @min -1800000000
- * @max 1800000000
- * @group Data Link Loss
- */
-PARAM_DEFINE_INT32(NAV_AH_LON, 1518423250);
-
-/**
- * Airfield home alt
- *
- * Altitude of airfield home waypoint
+ * Defines a crosstrack horizontal distance
  *
  * @unit m
- * @min -50
- * @decimal 1
- * @increment 0.5
- * @group Data Link Loss
+ * @min 500
+ *
+ * @group Mission
  */
-PARAM_DEFINE_FLOAT(NAV_AH_ALT, 600.0f);
+PARAM_DEFINE_FLOAT(NAV_TRAFF_A_HOR, 500);
+
+/**
+ * Set NAV TRAFFIC AVOID vertical distance
+ *
+ *
+ * @unit m
+ * @min 10
+ * @max 500
+ *
+ * @group Mission
+ */
+PARAM_DEFINE_FLOAT(NAV_TRAFF_A_VER, 500);
+
+/**
+ * Estimated time until collision
+ *
+ * Minimum acceptable time until collsion.
+ * Assumes constant speed over 3d distance.
+ *
+ * @unit s
+ * @min 1
+ * @max 900000000
+ * @group Mission
+ */
+PARAM_DEFINE_INT32(NAV_TRAFF_COLL_T, 60);
 
 /**
  * Force VTOL mode takeoff and land
@@ -183,3 +171,19 @@ PARAM_DEFINE_FLOAT(NAV_AH_ALT, 600.0f);
  * @group Mission
  */
 PARAM_DEFINE_INT32(NAV_FORCE_VT, 1);
+
+/**
+ * Minimum Loiter altitude
+ *
+ * This is the minimum altitude above Home the system will always obey in Loiter (Hold) mode if switched into this
+ * mode without specifying an altitude (e.g. through Loiter switch on RC).
+ * Doesn't affect Loiters that are part of Missions or that are entered through a reposition setpoint ("Go to").
+ * Set to a negative value to disable.
+ *
+ * @unit m
+ * @min -1
+ * @decimal 1
+ * @increment 0.5
+ * @group Mission
+ */
+PARAM_DEFINE_FLOAT(NAV_MIN_LTR_ALT, -1.f);

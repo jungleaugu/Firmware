@@ -1,6 +1,6 @@
 /****************************************************************************
  *
- *   Copyright (c) 2013-2017 PX4 Development Team. All rights reserved.
+ *   Copyright (c) 2013-2022 PX4 Development Team. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,49 +37,35 @@
  * @author Lorenz Meier <lm@inf.ethz.ch>
  * @author Thomas Gubler <thomasgubler@student.ethz.ch>
  * @author Sander Smeets <sander@droneslab.com>
+ * @author Nuno Marques <nuno.marques@dronesolutions.io>
  */
 
-#ifndef MISSION_FEASIBILITY_CHECKER_H_
-#define MISSION_FEASIBILITY_CHECKER_H_
+#pragma once
 
 #include <dataman/dataman.h>
 #include <uORB/topics/mission.h>
-#include <uORB/topics/fw_pos_ctrl_status.h>
+#include <px4_platform_common/module_params.h>
+#include "MissionFeasibility/FeasibilityChecker.hpp"
 
 class Geofence;
 class Navigator;
 
-class MissionFeasibilityChecker
+class MissionFeasibilityChecker: public ModuleParams
 {
 private:
 	Navigator *_navigator{nullptr};
+	FeasibilityChecker _feasibility_checker;
 
-	/* Checks for all airframes */
-	bool checkGeofence(dm_item_t dm_current, size_t nMissionItems, Geofence &geofence, float home_alt, bool home_valid);
-
-	bool checkHomePositionAltitude(dm_item_t dm_current, size_t nMissionItems, float home_alt, bool home_valid,
-				       bool &warning_issued, bool throw_error = false);
-
-	bool checkMissionItemValidity(dm_item_t dm_current, size_t nMissionItems, bool condition_landed);
-
-	bool check_dist_1wp(dm_item_t dm_current, size_t nMissionItems, double curr_lat, double curr_lon,
-			    float dist_first_wp, bool &warning_issued);
-
-	/* Checks specific to fixedwing airframes */
-	bool checkFixedwing(dm_item_t dm_current, size_t nMissionItems, fw_pos_ctrl_status_s *fw_pos_ctrl_status,
-			    float home_alt, bool home_valid, float default_acceptance_rad, bool land_start_req);
-
-	bool checkFixedWingTakeoff(dm_item_t dm_current, size_t nMissionItems, float home_alt, bool home_valid,
-				   float default_acceptance_rad);
-	bool checkFixedWingLanding(dm_item_t dm_current, size_t nMissionItems, fw_pos_ctrl_status_s *fw_pos_ctrl_status,
-				   bool land_start_req);
-
-	/* Checks specific to rotarywing airframes */
-	bool checkRotarywing(dm_item_t dm_current, size_t nMissionItems,
-			     float home_alt, bool home_valid, float default_acceptance_rad);
+	bool checkGeofence(const mission_s &mission, float home_alt, bool home_valid);
 
 public:
-	MissionFeasibilityChecker(Navigator *navigator) : _navigator(navigator) {}
+	MissionFeasibilityChecker(Navigator *navigator) :
+		ModuleParams(nullptr),
+		_navigator(navigator),
+		_feasibility_checker()
+	{
+
+	}
 	~MissionFeasibilityChecker() = default;
 
 	MissionFeasibilityChecker(const MissionFeasibilityChecker &) = delete;
@@ -88,8 +74,5 @@ public:
 	/*
 	 * Returns true if mission is feasible and false otherwise
 	 */
-	bool checkMissionFeasible(const mission_s &mission, float max_waypoint_distance, bool land_start_req);
-
+	bool checkMissionFeasible(const mission_s &mission);
 };
-
-#endif /* MISSION_FEASIBILITY_CHECKER_H_ */

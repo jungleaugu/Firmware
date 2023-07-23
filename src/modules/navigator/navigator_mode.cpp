@@ -42,13 +42,9 @@
 #include "navigator_mode.h"
 #include "navigator.h"
 
-NavigatorMode::NavigatorMode(Navigator *navigator, const char *name) :
-	SuperBlock(navigator, name),
-	_navigator(navigator),
-	_active(false)
+NavigatorMode::NavigatorMode(Navigator *navigator) :
+	_navigator(navigator)
 {
-	/* load initial params */
-	updateParams();
 	/* set initial mission items */
 	on_inactivation();
 	on_inactive();
@@ -59,8 +55,6 @@ NavigatorMode::run(bool active)
 {
 	if (active) {
 		if (!_active) {
-			/* first run, reset stay in failsafe flag */
-			_navigator->get_mission_result()->stay_in_failsafe = false;
 			_navigator->set_mission_result_updated();
 			on_activation();
 

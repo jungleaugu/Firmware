@@ -35,12 +35,11 @@
 #
 # PX4 airframe config processor (main executable file)
 #
-# This tool scans the PX4 ROMFS code for declarations of airframes
+# This tool scans the PX4 ROMFS directory for declarations of airframes
 #
-# Currently supported formats are:
-#   * XML for the parametric UI generator
-#   * Markdown for the PX4 dev guide (https://github.com/PX4/Devguide)
-#
+# Currently supported output formats are:
+#   * XML for the parametric UI generator (Used in QGC)
+#   * Markdown for the PX4 User guide (https://github.com/PX4/PX4-user_guide)
 #
 
 from __future__ import print_function
@@ -64,10 +63,10 @@ def main():
                              " (default FILENAME: airframes.xml)")
     parser.add_argument("-m", "--markdown",
                         nargs='?',
-                        const="airframe_reference.md",
+                        const="airframes.md",
                         metavar="FILENAME",
                         help="Create Markdown file"
-                             " (default FILENAME: airframes_reference.md)")
+                             " (default FILENAME: airframes.md)")
     default_image_path = '../../assets/airframes/types'
     parser.add_argument("-i", "--image-path",
                         default=default_image_path,
@@ -104,24 +103,32 @@ def main():
     # We can't validate yet
     # if not parser.Validate():
     #     sys.exit(1)
-    param_groups = parser.GetParamGroups()
+    airframe_groups = parser.GetAirframeGroups()
 
     # Output to XML file
     if args.xml:
         if args.verbose: print("Creating XML file " + args.xml)
-        out = xmlout.XMLOutput(param_groups, args.board)
+        out = xmlout.XMLOutput(airframe_groups, args.board)
         out.Save(args.xml)
 
     # Output to markdown file
     if args.markdown:
         if args.verbose: print("Creating markdown file " + args.markdown)
-        out = markdownout.MarkdownTablesOutput(param_groups, args.board, args.image_path)
+        out = markdownout.MarkdownTablesOutput(airframe_groups, args.board, args.image_path)
         out.Save(args.markdown)
 
+    # Output to start scripts
     if args.start_script:
+        # Airframe start script
         if args.verbose: print("Creating start script " + args.start_script)
-        out = rcout.RCOutput(param_groups, args.board)
+        out = rcout.RCOutput(airframe_groups, args.board)
         out.Save(args.start_script)
+
+        # Airframe post-start script
+        post_start_script = args.start_script + '.post'
+        if args.verbose: print("Creating post-start script " + post_start_script)
+        out_post = rcout.RCOutput(airframe_groups, args.board, post_start=True)
+        out_post.Save(post_start_script)
 
     if (args.verbose): print("All done!")
 

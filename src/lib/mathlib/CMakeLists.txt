@@ -30,14 +30,22 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 ############################################################################
-px4_add_module(
-	MODULE lib__mathlib
-	COMPILE_FLAGS
-	SRCS
-		math/test/test.cpp
-		math/Limits.cpp
-		math/matrix_alg.cpp
-	DEPENDS
-		platforms__common
-	)
-# vim: set noet ft=cmake fenc=utf-8 ff=unix :
+
+px4_add_library(mathlib
+	math/test/test.cpp
+	math/filter/LowPassFilter2p.hpp
+	math/filter/MedianFilter.hpp
+	math/filter/NotchFilter.hpp
+	math/filter/second_order_reference_model.hpp
+)
+
+px4_add_unit_gtest(SRC math/test/LowPassFilter2pVector3fTest.cpp LINKLIBS mathlib)
+px4_add_unit_gtest(SRC math/test/AlphaFilterTest.cpp)
+px4_add_unit_gtest(SRC math/test/MedianFilterTest.cpp)
+px4_add_unit_gtest(SRC math/test/NotchFilterTest.cpp)
+px4_add_unit_gtest(SRC math/test/second_order_reference_model_test.cpp)
+px4_add_unit_gtest(SRC math/FunctionsTest.cpp)
+px4_add_unit_gtest(SRC math/test/UtilitiesTest.cpp)
+px4_add_unit_gtest(SRC math/WelfordMeanTest.cpp)
+px4_add_unit_gtest(SRC math/WelfordMeanVectorTest.cpp)
+px4_add_unit_gtest(SRC math/MaxDistanceToCircleTest.cpp)
