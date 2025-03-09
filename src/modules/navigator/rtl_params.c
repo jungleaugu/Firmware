@@ -139,6 +139,7 @@ PARAM_DEFINE_INT32(RTL_CONE_ANG, 45);
  * RTL precision land mode
  *
  * Use precision landing when doing an RTL landing phase.
+ * This setting does not apply for RTL destinations planned as part of a mission.
  *
  * @value 0 No precision landing
  * @value 1 Opportunistic precision landing
@@ -159,18 +160,6 @@ PARAM_DEFINE_INT32(RTL_PLD_MD, 0);
  * @group Return Mode
  */
 PARAM_DEFINE_FLOAT(RTL_LOITER_RAD, 80.0f);
-
-/**
- * RTL heading mode
- *
- * Defines the heading behavior during RTL
- *
- * @value 0 Towards next waypoint.
- * @value 1 Heading matches destination.
- * @value 2 Use current heading.
- * @group Return Mode
- */
-PARAM_DEFINE_INT32(RTL_HDG_MD, 0);
 
 /**
  * RTL time estimate safety margin factor
@@ -200,3 +189,13 @@ PARAM_DEFINE_FLOAT(RTL_TIME_FACTOR, 1.1f);
  * @group Return To Land
  */
 PARAM_DEFINE_INT32(RTL_TIME_MARGIN, 100);
+
+/**
+ * RTL force approach landing
+ *
+ * Only consider RTL point, if it has an approach defined.
+ *
+ * @boolean
+ * @group Return To Land
+ */
+PARAM_DEFINE_INT32(RTL_APPR_FORCE, 0);

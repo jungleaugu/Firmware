@@ -49,7 +49,7 @@ INA228::INA228(const I2CSPIDriverConfig &config, int battery_index) :
 	_comms_errors(perf_alloc(PC_COUNT, "ina228_com_err")),
 	_collection_errors(perf_alloc(PC_COUNT, "ina228_collection_err")),
 	_measure_errors(perf_alloc(PC_COUNT, "ina228_measurement_err")),
-	_battery(battery_index, this, INA228_SAMPLE_INTERVAL_US, battery_status_s::BATTERY_SOURCE_POWER_MODULE)
+	_battery(battery_index, this, INA228_SAMPLE_INTERVAL_US, battery_status_s::SOURCE_POWER_MODULE)
 {
 	float fvalue = MAX_CURRENT;
 	_max_current = fvalue;
@@ -88,6 +88,7 @@ INA228::INA228(const I2CSPIDriverConfig &config, int battery_index) :
 	_battery.setConnected(false);
 	_battery.updateVoltage(0.f);
 	_battery.updateCurrent(0.f);
+	_battery.updateTemperature(0.f);
 	_battery.updateAndPublishBatteryStatus(hrt_absolute_time());
 }
 
@@ -306,6 +307,7 @@ INA228::collect()
 	// success = success && (read(INA228_REG_POWER, _power) == PX4_OK);
 	success = success && (read(INA228_REG_CURRENT, _current) == PX4_OK);
 	//success = success && (read(INA228_REG_VSHUNT, _shunt) == PX4_OK);
+	success = success && (read(INA228_REG_DIETEMP, _temperature) == PX4_OK);
 
 	if (!success) {
 		PX4_DEBUG("error reading from sensor");
@@ -315,6 +317,7 @@ INA228::collect()
 	_battery.setConnected(success);
 	_battery.updateVoltage(static_cast<float>(_bus_voltage * INA228_VSCALE));
 	_battery.updateCurrent(static_cast<float>(_current * _current_lsb));
+	_battery.updateTemperature(static_cast<float>(_temperature * INA228_TSCALE));
 	_battery.updateAndPublishBatteryStatus(hrt_absolute_time());
 
 	perf_end(_sample_perf);
@@ -381,6 +384,7 @@ INA228::RunImpl()
 		_battery.setConnected(false);
 		_battery.updateVoltage(0.f);
 		_battery.updateCurrent(0.f);
+		_battery.updateTemperature(0.f);
 		_battery.updateAndPublishBatteryStatus(hrt_absolute_time());
 
 		if (init() != PX4_OK) {
